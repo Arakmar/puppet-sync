@@ -44,6 +44,7 @@ class PuppetSync
 
   VERSION = "1.2-pdxcat2"
   STAMP   = ".puppet-sync-stamp"
+  SITE_PP_FILE = 'manifests/site.pp'
 
   def initialize(arguments)
     @arguments = arguments
@@ -117,7 +118,10 @@ class PuppetSync
           output "Recursively deleting untracked file(s) #{path.chomp}" if @options.verbose
           FileUtils.remove_entry_secure(path.chomp)
         end
-
+        if File.exist?(SITE_PP_FILE)
+          output "Touch: #{SITE_PP_FILE}" if @options.verbose
+          FileUtils.touch(SITE_PP_FILE)
+        end
         output "Touch: #{STAMP}" if @options.verbose
         FileUtils.touch(STAMP)
       end
