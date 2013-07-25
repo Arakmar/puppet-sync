@@ -67,8 +67,9 @@ class PuppetSync
     unless parsed_options? && arguments_valid?
       abort "ERROR: invalid arguments given."
     end
+    @options.environment = @options.branch if @options.environment.nil?
 
-    deploy = deploy_directory(@options.branch)
+    deploy = deploy_directory(@options.environment)
     output "---------------------------------------------- PuppetSync ---", ".-"
     output "Host        : #{Socket.gethostbyname(Socket.gethostname).first}"
     output "Branch      : #{@options.branch}"
@@ -76,13 +77,13 @@ class PuppetSync
     output "Delete From : #{deploy}" if @options.delete
     output "Repository  : #{@options.repository}"
 
-    self.update(@options.branch, :delete => @options.delete)
+    self.update(@options.branch, @options.environment, :delete => @options.delete)
 
     output "-------------------------------------------------------------\n", "`-"
   end
 
-  def update(branch, opts={})
-    deploy = deploy_directory(branch)
+  def update(branch, environment, opts={})
+    deploy = deploy_directory(environment)
 
     if File.exists?(deploy) and not File.exists?("#{deploy}/#{STAMP}")
       raise "ERROR: Environment directory is not managed by puppet-sync."
@@ -114,9 +115,12 @@ class PuppetSync
           git(:submodule, 'update --init --recursive')
         end
         git(:clean, '-d -x -f')
-        git(:"ls-files", '--other --exclude-standard').each do |path|
-          output "Recursively deleting untracked file(s) #{path.chomp}" if @options.verbose
-          FileUtils.remove_entry_secure(path.chomp)
+        ls_files = git(:"ls-files", '--other --exclude-standard')
+        unless ls_files == ""
+          ls_files.each do |path|
+            output "Recursively deleting untracked file(s) #{path.chomp}" if @options.verbose
+            FileUtils.remove_entry_secure(path.chomp)
+          end
         end
         if File.exist?(SITE_PP_FILE)
           output "Touch: #{SITE_PP_FILE}" if @options.verbose
@@ -175,6 +179,10 @@ class PuppetSync
 
     opts.on('-d', '--deploy DIR', 'Specify the directory to deploy to.') do |deploy|
       @options.deploy = deploy
+    end
+
+    opts.on('-e', '--environment DIR', 'Specify the name of the environment to deploy to, defaults to the branch.') do |environment|
+      @options.environment = environment
     end
 
     opts.on('-D', '--delete', 'Remove the specified branch from the deployment directory.') do
